@@ -1,0 +1,55 @@
+name: "CodeQL Analysis"
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  analyze:
+    name: Analyze Code
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # We tell GitHub to run two distinct analysis runs
+        language: [ 'java-kotlin', 'c-cpp' ]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 21 (For Java analysis)
+      if: matrix.language == 'java-kotlin'
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+
+    # Initializes the CodeQL tools for the specific language
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: ${{ matrix.language }}
+
+    # Manual Build Step: CodeQL requires native languages to be compiled
+    - name: Build Application
+      run: |
+        if [ "${{ matrix.language }}" = "java-kotlin" ]; then
+          javac BridgeApp.java
+        elif [ "${{ matrix.language }}" = "c-cpp" ]; then
+          # On Ubuntu runners, the JNI headers live in slightly different folders than macOS
+          clang -shared -fPIC \
+            -I"$JAVA_HOME/include" \
+            -I"$JAVA_HOME/include/linux" \
+            native_lib.c -o libnative_lib.so
+        fi
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
