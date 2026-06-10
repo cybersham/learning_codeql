@@ -12,7 +12,6 @@ import java
 import semmle.code.java.dataflow.TaintTracking
 import DataFlow::PathGraph
 
-// Modern CodeQL uses modules implementing DataFlow::ConfigSig
 module JniFlowConfig implements DataFlow::ConfigSig {
   
   // 1. Where the untrusted data enters
@@ -29,9 +28,8 @@ module JniFlowConfig implements DataFlow::ConfigSig {
   }
 }
 
-// Instantiate the tracking engine using our module definition
 module JniFlow = TaintTracking::Global<JniFlowConfig>;
 
 from JniFlow::PathNode source, JniFlow::PathNode sink
 where JniFlow::flowPath(source, sink)
-select sink.getNode(), source, sink, "Alert: Untrusted data flows directly into native method " + sink.getNode().(Expr).getEnclosingCallable().getName() + " without validation."
+select sink.getNode(), source, sink, "Alert: Untrusted data flows directly into native method " + sink.getNode().getEnclosingCallable().getName() + " without validation."
