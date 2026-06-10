@@ -10,31 +10,28 @@
 
 import java
 import semmle.code.java.dataflow.TaintTracking
-// This import allows CodeQL to show the visual step-by-step path line in GitHub UI
 import DataFlow::PathGraph
 
-class JniConfiguration extends TaintTracking::Configuration {
-  JniConfiguration() { this = "JniConfiguration" }
-
-  // 1. Where the "dirty" data enters our system
-  override predicate isSource(DataFlow::Node source) {
-    // remoteFlowSource includes standard inputs like our Scanner implementation
+// Modern CodeQL uses modules implementing DataFlow::ConfigSig
+module JniFlowConfig implements DataFlow::ConfigSig {
+  
+  // 1. Where the untrusted data enters
+  predicate isSource(DataFlow::Node source) {
     exists(RemoteFlowSource rfs | source = rfs)
   }
 
   // 2. Where the data should never go unvalidated
-  override predicate isSink(DataFlow::Node sink) {
-    // Look through all method calls (ma) in the program
+  predicate isSink(DataFlow::Node sink) {
     exists(MethodAccess ma |
-      // If the target method is declared with the 'native' keyword
       ma.getMethod().isNative() and
-      // And the sink is one of the arguments passed to that method
       sink.asExpr() = ma.getAnArgument()
     )
   }
 }
 
-// The query structurally expects a source, a sink, and the path linking them
-from JniConfiguration config, DataFlow::PathNode source, DataFlow::PathNode sink
-where config.hasFlowPath(source, sink)
+// Instantiate the tracking engine using our module definition
+module JniFlow = TaintTracking::Global<JniFlowConfig>;
+
+from JniFlow::PathNode source, JniFlow::PathNode sink
+where JniFlow::flowPath(source, sink)
 select sink.getNode(), source, sink, "Alert: Untrusted data flows directly into native method " + sink.getNode().(Expr).getEnclosingCallable().getName() + " without validation."
