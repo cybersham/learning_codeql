@@ -1,35 +1,38 @@
 /**
- * @name Untrusted data flowing to native boundary
- * @description Traces tainted input passed to a Java native method.
+ * @name Cross-Language JNI Path Injection
+ * @description Tracks untrusted user input passing into a native method that could lead to file system manipulation.
  * @kind path-problem
  * @problem.severity error
- * @security-severity 7.5
- * @id java/untrusted-data-to-jni
+ * @security-tip Tracing tainted input across JNI requires verification of safe parameter handling in native extensions.
+ * @id java/jni-path-injection
  * @tags security
+ * external/cwe/cwe-22
  */
 
 import java
 import semmle.code.java.dataflow.TaintTracking
-import DataFlow::PathGraph
+import MyFlow::PathGraph
 
 module JniFlowConfig implements DataFlow::ConfigSig {
-  
-  // 1. Where the untrusted data enters
+
+  // Step 1: Define what CodeQL treats as the starting point (Tainted Source)
   predicate isSource(DataFlow::Node source) {
     exists(RemoteFlowSource rfs | source = rfs)
   }
 
-  // 2. Where the data should never go unvalidated
+  // Step 2: Define what CodeQL treats as the end point (Sink)
+  // We look for arguments being passed into any method flagged with the 'native' modifier.
   predicate isSink(DataFlow::Node sink) {
-    exists(MethodAccess ma |
-      ma.getMethod().isNative() and
-      sink.asExpr() = ma.getAnArgument()
+    exists(MethodCall mc |
+      mc.getMethod().isNative() and
+      sink.asExpr() = mc.getAnArgument()
     )
   }
 }
 
-module JniFlow = TaintTracking::Global<JniFlowConfig>;
+// Instantiate our custom tracking engine
+module MyFlow = TaintTracking::Global<JniFlowConfig>;
 
-from JniFlow::PathNode source, JniFlow::PathNode sink
-where JniFlow::flowPath(source, sink)
-select sink.getNode(), source, sink, "Alert: Untrusted data flows directly into native method " + sink.getNode().getEnclosingCallable().getName() + " without validation."
+from MyFlow::PathNode source, MyFlow::PathNode sink
+where MyFlow::flowPath(source, sink)
+select sink.getNode(), source, sink, "Tainted user input flows cross-boundary into native method invocation."
