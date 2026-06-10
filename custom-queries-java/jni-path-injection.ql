@@ -11,6 +11,7 @@
 
 import java
 import semmle.code.java.dataflow.TaintTracking
+import semmle.code.java.dataflow.RemoteFlowSources // <-- Explicitly imported to fix RemoteFlowSource error
 import MyFlow::PathGraph
 
 module JniFlowConfig implements DataFlow::ConfigSig {
@@ -21,7 +22,6 @@ module JniFlowConfig implements DataFlow::ConfigSig {
   }
 
   // Step 2: Define what CodeQL treats as the end point (Sink)
-  // We look for arguments being passed into any method flagged with the 'native' modifier.
   predicate isSink(DataFlow::Node sink) {
     exists(MethodCall mc |
       mc.getMethod().isNative() and
