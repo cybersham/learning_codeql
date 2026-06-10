@@ -37,6 +37,7 @@ jobs:
       uses: github/codeql-action/init@v3
       with:
         languages: ${{ matrix.language }}
+        queries: ${{ matrix.language == 'java-kotlin' && './custom-queries-java' || 'security-extended' }}
 
     # Manual Build Step: CodeQL requires native languages to be compiled
     - name: Build Application
